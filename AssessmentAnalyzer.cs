@@ -207,11 +207,14 @@ namespace AssessmentReportsV2
                                              m => m.LastName,
                                              (s, m) => new
                                              {
-                                                 Scores = s.Where(score => score.FirstName[0] == m.FirstName[0]
-                                                                  && score.FirstName != m.FirstName
-                                                                  && (Math.Abs(score.FirstName.Length - m.FirstName.Length) <= 3
-                                                                      || score.FirstName.Contains(m.FirstName)
-                                                                      || m.FirstName.Contains(score.FirstName)
+                                                 Scores = s.Where(score => score.FirstName != m.FirstName
+                                                                  && (Soundex.Generate(score.FirstName) == Soundex.Generate(m.FirstName)
+                                                                      || (score.FirstName[0] == m.FirstName[0]
+                                                                          && (Math.Abs(score.FirstName.Length - m.FirstName.Length) <= 3
+                                                                              || score.FirstName.Contains(m.FirstName)
+                                                                              || m.FirstName.Contains(score.FirstName)
+                                                                              )
+                                                                          )
                                                                       )
                                                                   ).ToArray(),
                                                  m.FirstName,
@@ -239,12 +242,16 @@ namespace AssessmentReportsV2
                                             m => m.FirstName,
                                             (s, m) => new
                                             {
-                                                Scores = s.Where(score => score.LastName[0] == m.LastName[0]
-                                                                 && score.LastName != m.LastName
-                                                                 && (Math.Abs(score.LastName.Length - m.LastName.Length) <= 3
-                                                                     || score.LastName.Contains(m.LastName)
-                                                                     || m.LastName.Contains(score.LastName)
-                                                                     )
+                                                Scores = s.Where(score => score.LastName != m.LastName
+                                                                  && (Soundex.Generate(score.LastName) == Soundex.Generate(m.LastName)
+                                                                      || (score.LastName[0] == m.LastName[0]
+                                                                          && score.LastName != m.LastName
+                                                                          && (Math.Abs(score.LastName.Length - m.LastName.Length) <= 3
+                                                                              || score.LastName.Contains(m.LastName)
+                                                                              || m.LastName.Contains(score.LastName)
+                                                                              )
+                                                                         )
+                                                                      )
                                                                  ).ToArray(),
                                                 m.FirstName,
                                                 m.LastName
