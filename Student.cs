@@ -6,6 +6,8 @@ namespace AssessmentReportsV2
 {
     public class AssessmentScore
     {
+        public string FirstName { get; internal set; }
+        public string LastName { get; internal set; }
         public string StudentIdentifier { get; set; }
         public string Semester { get; set; }
         public string SemesterSort { get; set; }

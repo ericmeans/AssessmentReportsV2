@@ -9,11 +9,11 @@ namespace AssessmentReportsV2
         {
             var options = new AssessmentOptions
             {
-                Filename = @".\Theatre Juries.xlsx",
-                CurrentSemester = "Spring 2018",
+                Filename = @"E:\Users\Eric\Desktop\Juries\Theatre Juries fall 18 orig.xlsx",
+                CurrentSemester = "Fall 2018",
                 SheetName = "Sheet1",
                 StartColumn = "I",
-                LastColumn = "AO",
+                LastColumn = "AP",
                 SkipColumns = new[] { "AH", "AI", "AJ" },
                 ValidateOnly = args.Contains("-v")
             };
@@ -50,6 +50,8 @@ namespace AssessmentReportsV2
             }
             var analyzer = new AssessmentAnalyzer(options);
             analyzer.Execute();
+            Console.WriteLine("Finished.");
+            Console.ReadLine();
         }
     }
 }
