@@ -1,6 +1,7 @@
 ﻿using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using DuoVia.FuzzyStrings;
 using OfficeOpenXml;
 using System;
 using System.Collections.Generic;
@@ -13,6 +14,8 @@ namespace AssessmentReportsV2
     public class AssessmentAnalyzer
     {
         private readonly AssessmentOptions _options;
+
+        private const int _maximumLevenshteinDistance = 2;
 
         public AssessmentAnalyzer(AssessmentOptions options)
         {
@@ -209,6 +212,7 @@ namespace AssessmentReportsV2
                                              {
                                                  Scores = s.Where(score => score.FirstName != m.FirstName
                                                                   && (Soundex.Generate(score.FirstName) == Soundex.Generate(m.FirstName)
+                                                                      || score.FirstName.LevenshteinDistance(m.FirstName) <= _maximumLevenshteinDistance
                                                                       || (score.FirstName[0] == m.FirstName[0]
                                                                           && (Math.Abs(score.FirstName.Length - m.FirstName.Length) <= 3
                                                                               || score.FirstName.Contains(m.FirstName)
@@ -244,6 +248,7 @@ namespace AssessmentReportsV2
                                             {
                                                 Scores = s.Where(score => score.LastName != m.LastName
                                                                   && (Soundex.Generate(score.LastName) == Soundex.Generate(m.LastName)
+                                                                      || score.LastName.LevenshteinDistance(m.LastName) <= _maximumLevenshteinDistance
                                                                       || (score.LastName[0] == m.LastName[0]
                                                                           && score.LastName != m.LastName
                                                                           && (Math.Abs(score.LastName.Length - m.LastName.Length) <= 3
