@@ -15,8 +15,6 @@ namespace AssessmentReportsV2
     {
         private readonly AssessmentOptions _options;
 
-        private const int _maximumLevenshteinDistance = 2;
-
         public AssessmentAnalyzer(AssessmentOptions options)
         {
             this._options = options;
@@ -38,7 +36,11 @@ namespace AssessmentReportsV2
 
             Console.WriteLine($"Using {scores.Count} scores from students included in the {this._options.CurrentSemester} semester scores.");
 
-            ValidateScores(scores);
+            var messages = ScoreValidator.ValidateScores(scores);
+            foreach (var message in messages.OrderBy(m => ConvertToSortableValue(m.Item1)))
+            {
+                Console.Error.WriteLine(message.Item2);
+            }
 
             if (this._options.ValidateOnly)
                 return;
@@ -191,221 +193,6 @@ namespace AssessmentReportsV2
             }
 
             return null;
-        }
-
-        private void ValidateScores(List<AssessmentScore> scores)
-        {
-            // Validation: Find students who differ only by first or only by last name, or whose first and last name got flipped.
-            var splitNames = scores.Select(s => new[] { s.FirstName, s.LastName }).Distinct();
-            var possibleFirstMatches = splitNames.GroupBy(s => s[1])
-                                                 .Where(g => g.Select(x => x[0]).Distinct().Count() > 1)
-                                                 .Select(g => new
-                                                 {
-                                                     FirstNames = g.Select(s => s[0]).Distinct().ToArray(),
-                                                     LastName = g.Key
-                                                 });
-            var onlyFirstNames = scores.GroupBy(s => s.StudentIdentifier)
-                                       .Join(possibleFirstMatches.SelectMany(m => m.FirstNames.Select(fn => new { FirstName = fn, m.LastName })),
-                                             g => g.First().LastName,
-                                             m => m.LastName,
-                                             (s, m) => new
-                                             {
-                                                 Scores = s.Where(score => score.FirstName != m.FirstName
-                                                                  && (Soundex.Generate(score.FirstName) == Soundex.Generate(m.FirstName)
-                                                                      || score.FirstName.LevenshteinDistance(m.FirstName) <= _maximumLevenshteinDistance
-                                                                      || (score.FirstName[0] == m.FirstName[0]
-                                                                          && (Math.Abs(score.FirstName.Length - m.FirstName.Length) <= 3
-                                                                              || score.FirstName.Contains(m.FirstName)
-                                                                              || m.FirstName.Contains(score.FirstName)
-                                                                              )
-                                                                          )
-                                                                      )
-                                                                  ).ToArray(),
-                                                 m.FirstName,
-                                                 m.LastName
-                                             })
-                                       .Where(x => x.Scores.Count() > 1)
-                                       .GroupBy(x => x.LastName)
-                                       .Select(g => new
-                                       {
-                                           FirstName = g.OrderBy(x => x.Scores.Count()).First().FirstName,
-                                           LastName = g.Key,
-                                           MismatchScores = g.OrderBy(x => x.Scores.Count()).First().Scores
-                                       })
-                                       .ToArray();
-            var possibleLastMatches = splitNames.GroupBy(s => s[0])
-                                                .Where(g => g.Select(x => x[1]).Distinct().Count() > 1)
-                                                .Select(g => new
-                                                {
-                                                    FirstName = g.Key,
-                                                    LastNames = g.Select(s => s[1]).Distinct().ToArray()
-                                                });
-            var onlyLastNames = scores.GroupBy(s => s.StudentIdentifier)
-                                      .Join(possibleLastMatches.SelectMany(m => m.LastNames.Select(ln => new { m.FirstName, LastName = ln })),
-                                            g => g.First().FirstName,
-                                            m => m.FirstName,
-                                            (s, m) => new
-                                            {
-                                                Scores = s.Where(score => score.LastName != m.LastName
-                                                                  && (Soundex.Generate(score.LastName) == Soundex.Generate(m.LastName)
-                                                                      || score.LastName.LevenshteinDistance(m.LastName) <= _maximumLevenshteinDistance
-                                                                      || (score.LastName[0] == m.LastName[0]
-                                                                          && score.LastName != m.LastName
-                                                                          && (Math.Abs(score.LastName.Length - m.LastName.Length) <= 3
-                                                                              || score.LastName.Contains(m.LastName)
-                                                                              || m.LastName.Contains(score.LastName)
-                                                                              )
-                                                                         )
-                                                                      )
-                                                                 ).ToArray(),
-                                                m.FirstName,
-                                                m.LastName
-                                            })
-                                      .Where(x => x.Scores.Count() > 1)
-                                      .GroupBy(x => x.FirstName)
-                                      .Select(g => new
-                                      {
-                                          FirstName = g.Key,
-                                          LastName = g.OrderBy(x => x.Scores.Count()).First().LastName,
-                                          MismatchScores = g.OrderBy(x => x.Scores.Count()).First().Scores
-                                      })
-                                      .ToArray();
-            var reversedNames = scores.GroupBy(s => s.LastName + " " + s.FirstName).Select(g => new { ReversedName = g.Key, Count = g.Count(), PossibleMatches = g.ToArray() });
-            var flippedNames = scores.GroupBy(s => s.StudentIdentifier)
-                                     .Join(reversedNames, g => g.Key, r => r.ReversedName, (g1, g2) => new { Student = g1, Reversed = g2 })
-                                     .Where(g => g.Student.Count() > g.Reversed.Count)
-                                     .Select(g => new
-                                     {
-                                         StudentIdentifier = g.Student.Key,
-                                         PossibleMatches = g.Reversed.PossibleMatches
-                                     })
-                                     .ToArray();
-
-            var dashReplacedWithSpace = scores.GroupBy(s => s.FirstName.Replace('-', ' ')).Select(g => new { NoDashes = g.Key, Count = g.Count(), PossibleMatches = g.ToArray() });
-            var lostDashes = scores.GroupBy(s => s.StudentIdentifier)
-                                     .Join(dashReplacedWithSpace, g => g.Key, r => r.NoDashes, (g1, g2) => new { Student = g1, NoDashes = g2 })
-                                     .Where(g => g.Student.Count() > g.NoDashes.Count)
-                                     .Select(g => new
-                                     {
-                                         StudentIdentifier = g.Student.Key,
-                                         PossibleMatches = g.NoDashes.PossibleMatches
-                                     })
-                                     .ToArray();
-
-            // Validation: Find students who have more than one class standing or emphasis in a given semester.
-            var multipleStandings = scores.GroupBy(s => new
-                {
-                    s.StudentIdentifier,
-                    s.Semester
-                })
-                .Where(g => g.Select(x => x.ClassStanding).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
-                .Select(g => new
-                {
-                    g.Key.StudentIdentifier,
-                    g.Key.Semester,
-                    Scores = g.ToArray()
-                }).ToArray()
-                .ToArray();
-            var multipleEmphasis = scores.GroupBy(s => new
-                {
-                    s.StudentIdentifier,
-                    s.Semester
-                })
-                .Where(g => g.Select(x => x.Emphasis).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
-                .Select(g => new
-                {
-                    g.Key.StudentIdentifier,
-                    g.Key.Semester,
-                    Scores = g.ToArray()
-                }).ToArray();
-
-            var messages = new List<Tuple<string, string>>();
-            foreach (var fn in onlyFirstNames)
-            {
-                var mostPopular = fn.FirstName + " " + fn.LastName;
-                var mismatches = fn.MismatchScores.Select(s => new { FirstName = s.FirstName, s.Semester }).Distinct();
-                foreach (var m in mismatches)
-                {
-                    var sortValue = m.Semester + "_" + mostPopular;
-                    var message = $"Student {mostPopular} has potential misspelled first name {m.FirstName} in semester {m.Semester}; using {fn.FirstName}";
-                    messages.Add(new Tuple<string, string>(sortValue, message));
-                }
-                foreach (var score in fn.MismatchScores)
-                {
-                    score.StudentIdentifier = mostPopular;
-                }
-            }
-            foreach (var ln in onlyLastNames)
-            {
-                var mostPopular = ln.FirstName + " " + ln.LastName;
-                var mismatches = ln.MismatchScores.Select(s => new { LastName = s.LastName, s.Semester }).Distinct();
-                foreach (var m in mismatches)
-                {
-                    var sortValue = m.Semester + "_" + mostPopular;
-                    var message = $"Student {mostPopular} has potential misspelled last name {m.LastName} in semester {m.Semester}; using {ln.LastName}";
-                    messages.Add(new Tuple<string, string>(sortValue, message));
-                }
-                foreach (var score in ln.MismatchScores)
-                {
-                    score.StudentIdentifier = mostPopular;
-                }
-            }
-            foreach (var f in flippedNames)
-            {
-                var mostPopular = f.StudentIdentifier;
-                var mismatches = f.PossibleMatches.Select(s => new { s.StudentIdentifier, s.Semester }).Distinct();
-                foreach (var m in mismatches)
-                {
-                    var sortValue = m.Semester + "_" + mostPopular;
-                    var message = $"Student {mostPopular} has potential flipped first and last name {m.StudentIdentifier} in semester {m.Semester}";
-                    messages.Add(new Tuple<string, string>(sortValue, message));
-                }
-                foreach (var score in f.PossibleMatches)
-                {
-                    score.StudentIdentifier = mostPopular;
-                }
-            }
-            foreach (var ld in lostDashes)
-            {
-                var mostPopular = ld.StudentIdentifier;
-                var mismatches = ld.PossibleMatches.Select(s => new { s.StudentIdentifier, s.Semester }).Distinct();
-                foreach (var m in mismatches)
-                {
-                    var sortValue = m.Semester + "_" + mostPopular;
-                    var message = $"Student {mostPopular} has potential missing dash {m.StudentIdentifier} in semester {m.Semester}";
-                    messages.Add(new Tuple<string, string>(sortValue, message));
-                }
-                foreach (var score in ld.PossibleMatches)
-                {
-                    score.StudentIdentifier = mostPopular;
-                }
-            }
-            foreach (var standing in multipleStandings)
-            {
-                var mostPopular = standing.Scores.GroupBy(s => s.ClassStanding).OrderByDescending(g => g.Count()).Select(g => g.Key).First();
-                var sortValue = standing.Semester + "_" + standing.StudentIdentifier;
-                var message = $"Student {standing.StudentIdentifier} has multiple class standings for semester {standing.Semester}; picking {mostPopular}";
-                messages.Add(new Tuple<string, string>(sortValue, message));
-                foreach (var score in standing.Scores)
-                {
-                    score.ClassStanding = mostPopular;
-                }
-            }
-            foreach (var emphasis in multipleEmphasis)
-            {
-                var mostPopular = emphasis.Scores.GroupBy(s => s.Emphasis).OrderByDescending(g => g.Count()).Select(g => g.Key).First();
-                var sortValue = emphasis.Semester + "_" + emphasis.StudentIdentifier;
-                var message = $"Student {emphasis.StudentIdentifier} has multiple emphases for semester {emphasis.Semester}; picking {mostPopular}";
-                messages.Add(new Tuple<string, string>(sortValue, message));
-                foreach (var score in emphasis.Scores)
-                {
-                    score.Emphasis = mostPopular;
-                }
-            }
-            foreach (var message in messages.OrderBy(m => ConvertToSortableValue(m.Item1)))
-            {
-                Console.Error.WriteLine(message.Item2);
-            }
         }
 
         private void WriteResults(List<AssessmentScore> scores)
@@ -666,7 +453,7 @@ namespace AssessmentReportsV2
             return new string(value.Select(c => _whitespace.Contains(c) ? ' ' : c).ToArray()).Trim();
         }
 
-        private string ConvertToSortableValue(string semester)
+        public static string ConvertToSortableValue(string semester)
         {
             if (!semester.Contains(" "))
             {
