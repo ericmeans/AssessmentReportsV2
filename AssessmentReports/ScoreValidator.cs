@@ -1,6 +1,7 @@
 ﻿using DuoVia.FuzzyStrings;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 
@@ -8,74 +9,13 @@ namespace AssessmentReportsV2
 {
     public static class ScoreValidator
     {
-        private const int _maximumLevenshteinDistance = 2;
+        private const int _maximumLevenshteinDistance = 1;
 
-        public static List<Tuple<string, string>> ValidateScores(List<AssessmentScore> scores)
+        public static HashSet<Tuple<string, string>> ValidateScores(List<AssessmentScore> scores)
         {
-            // Validation: Find students who differ only by first or only by last name, or whose first and last name got flipped.
-            var splitNames = scores.Select(s => new[] { s.FirstName, s.LastName }).Distinct();
-            var possibleFirstMatches = splitNames.GroupBy(s => s[1])
-                                                 .Where(g => g.Select(x => x[0]).Distinct().Count() > 1)
-                                                 .Select(g => new
-                                                 {
-                                                     FirstNames = g.Select(s => s[0]).Distinct().ToArray(),
-                                                     LastName = g.Key
-                                                 })
-                                                 .SelectMany(m => m.FirstNames.Select(fn => new { FirstName = fn, m.LastName }));
-            var onlyFirstNames = scores.GroupBy(s => s.StudentIdentifier)
-                                       .Join(possibleFirstMatches,
-                                             g => g.First().LastName,
-                                             m => m.LastName,
-                                             (s, m) =>
-                                             {
-                                                var closeFirstNames = GetSimilarNames(s, score => score.FirstName, m.FirstName);
-                                                return new
-                                                {
-                                                    Scores = closeFirstNames.ToArray(),
-                                                    m.FirstName,
-                                                    m.LastName
-                                                };
-                                             })
-                                       .Where(x => x.Scores.Count() > 0)
-                                       .GroupBy(x => x.LastName)
-                                       .Select(g => new
-                                       {
-                                           FirstName = g.OrderBy(x => x.Scores.Count()).First().FirstName,
-                                           LastName = g.Key,
-                                           MismatchScores = g.OrderBy(x => x.Scores.Count()).First().Scores
-                                       })
-                                       .ToArray();
-            var possibleLastMatches = splitNames.GroupBy(s => s[0])
-                                                .Where(g => g.Select(x => x[1]).Distinct().Count() > 1)
-                                                .Select(g => new
-                                                {
-                                                    FirstName = g.Key,
-                                                    LastNames = g.Select(s => s[1]).Distinct().ToArray()
-                                                })
-                                                .SelectMany(m => m.LastNames.Select(ln => new { m.FirstName, LastName = ln }));
-            var onlyLastNames = scores.GroupBy(s => s.StudentIdentifier)
-                                      .Join(possibleLastMatches,
-                                            g => g.First().FirstName,
-                                            m => m.FirstName,
-                                            (s, m) =>
-                                            {
-                                                var closeLastNames = GetSimilarNames(s, score => score.LastName, m.LastName);
-                                                return new
-                                                {
-                                                    Scores = closeLastNames.ToArray(),
-                                                    m.FirstName,
-                                                    m.LastName
-                                                };
-                                            })
-                                      .Where(x => x.Scores.Count() > 0)
-                                      .GroupBy(x => x.FirstName)
-                                      .Select(g => new
-                                      {
-                                          FirstName = g.Key,
-                                          LastName = g.OrderBy(x => x.Scores.Count()).First().LastName,
-                                          MismatchScores = g.OrderBy(x => x.Scores.Count()).First().Scores
-                                      })
-                                      .ToArray();
+            var messages = new HashSet<Tuple<string, string>>();
+
+            // Validation: Find students whose first and last name got flipped, or a dash got added or removed.
             var reversedNames = scores.GroupBy(s => s.LastName + " " + s.FirstName).Select(g => new { ReversedName = g.Key, Count = g.Count(), PossibleMatches = g.ToArray() });
             var flippedNames = scores.GroupBy(s => s.StudentIdentifier)
                                      .Join(reversedNames, g => g.Key, r => r.ReversedName, (g1, g2) => new { Student = g1, Reversed = g2 })
@@ -83,6 +23,8 @@ namespace AssessmentReportsV2
                                      .Select(g => new
                                      {
                                          StudentIdentifier = g.Student.Key,
+                                         FirstName = g.Student.First().LastName,
+                                         LastName = g.Student.First().FirstName,
                                          PossibleMatches = g.Reversed.PossibleMatches
                                      })
                                      .ToArray();
@@ -94,68 +36,12 @@ namespace AssessmentReportsV2
                                      .Select(g => new
                                      {
                                          StudentIdentifier = g.Student.Key,
+                                         FirstName = g.Student.First().FirstName,
+                                         LastName = g.Student.First().LastName,
                                          PossibleMatches = g.NoDashes.PossibleMatches
                                      })
                                      .ToArray();
 
-            // Validation: Find students who have more than one class standing or emphasis in a given semester.
-            var multipleStandings = scores.GroupBy(s => new
-                {
-                    s.StudentIdentifier,
-                    s.Semester
-                })
-                .Where(g => g.Select(x => x.ClassStanding).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
-                .Select(g => new
-                {
-                    g.Key.StudentIdentifier,
-                    g.Key.Semester,
-                    Scores = g.ToArray()
-                }).ToArray()
-                .ToArray();
-            var multipleEmphasis = scores.GroupBy(s => new
-                {
-                    s.StudentIdentifier,
-                    s.Semester
-                })
-                .Where(g => g.Select(x => x.Emphasis).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
-                .Select(g => new
-                {
-                    g.Key.StudentIdentifier,
-                    g.Key.Semester,
-                    Scores = g.ToArray()
-                }).ToArray();
-
-            var messages = new List<Tuple<string, string>>();
-            foreach (var fn in onlyFirstNames)
-            {
-                var mostPopular = fn.FirstName + " " + fn.LastName;
-                var mismatches = fn.MismatchScores.Select(s => new { FirstName = s.FirstName, s.Semester }).Distinct();
-                foreach (var m in mismatches)
-                {
-                    var sortValue = m.Semester + "_" + mostPopular;
-                    var message = $"Student {mostPopular} has potential misspelled first name {m.FirstName} in semester {m.Semester}; using {fn.FirstName}";
-                    messages.Add(new Tuple<string, string>(sortValue, message));
-                }
-                foreach (var score in fn.MismatchScores)
-                {
-                    score.StudentIdentifier = mostPopular;
-                }
-            }
-            foreach (var ln in onlyLastNames)
-            {
-                var mostPopular = ln.FirstName + " " + ln.LastName;
-                var mismatches = ln.MismatchScores.Select(s => new { LastName = s.LastName, s.Semester }).Distinct();
-                foreach (var m in mismatches)
-                {
-                    var sortValue = m.Semester + "_" + mostPopular;
-                    var message = $"Student {mostPopular} has potential misspelled last name {m.LastName} in semester {m.Semester}; using {ln.LastName}";
-                    messages.Add(new Tuple<string, string>(sortValue, message));
-                }
-                foreach (var score in ln.MismatchScores)
-                {
-                    score.StudentIdentifier = mostPopular;
-                }
-            }
             foreach (var f in flippedNames)
             {
                 var mostPopular = f.StudentIdentifier;
@@ -169,6 +55,8 @@ namespace AssessmentReportsV2
                 foreach (var score in f.PossibleMatches)
                 {
                     score.StudentIdentifier = mostPopular;
+                    score.FirstName = f.FirstName;
+                    score.LastName = f.LastName;
                 }
             }
             foreach (var ld in lostDashes)
@@ -184,8 +72,166 @@ namespace AssessmentReportsV2
                 foreach (var score in ld.PossibleMatches)
                 {
                     score.StudentIdentifier = mostPopular;
+                    score.FirstName = ld.FirstName;
+                    score.LastName = ld.LastName;
                 }
             }
+
+            // Validation: Find students with misspelled names.
+            var firstNames = scores.Select(score => score.FirstName).Distinct();
+            var similarFirstNames = GetSupersets(firstNames.Select(s => GetSimilarNames(firstNames, s)));
+            var lastNames = scores.Select(score => score.LastName).Distinct();
+            var similarLastNames = GetSupersets(lastNames.Select(s => GetSimilarNames(lastNames, s)));
+
+            var scoresCopy = new List<AssessmentScore>(scores);
+
+            while (scoresCopy.Any())
+            {
+                var score = scoresCopy.First();
+                var similarFirstList = similarFirstNames.Where(n => n.Contains(score.FirstName)).First();
+                var similarLastList = similarLastNames.Where(n => n.Contains(score.LastName)).First();
+
+                if (similarFirstList.Count == 1 && similarLastList.Count == 1)
+                {
+                    scoresCopy.RemoveAt(0);
+                    continue;
+                }
+
+                var similarScores = scoresCopy.Where(s =>
+                        (s.FirstName.Equals(score.FirstName, StringComparison.CurrentCultureIgnoreCase)
+                         || similarFirstList.Contains(s.FirstName, StringComparer.CurrentCultureIgnoreCase))
+                        && (s.LastName.Equals(score.LastName, StringComparison.CurrentCultureIgnoreCase)
+                         || similarLastList.Contains(s.LastName, StringComparer.CurrentCultureIgnoreCase))
+                    ).ToArray();
+
+                if (!similarScores.Any())
+                {
+                    scoresCopy.RemoveAt(0);
+                    continue;
+                }
+
+                var firstName = similarScores.GroupBy(s => s.FirstName).OrderByDescending(g => g.Count()).First().Key;
+                var lastName = similarScores.GroupBy(s => s.LastName).OrderByDescending(g => g.Count()).First().Key;
+                var fullName = firstName + " " + lastName;
+
+                if (score.FirstName != firstName || score.LastName != lastName)
+                {
+                    var sortValue = score.Semester + "_" + fullName;
+                    var message = $"Student {fullName} has potential misspelled name {score.FirstName} {score.LastName} in semester {score.Semester}; using {fullName}";
+                    messages.Add(new Tuple<string, string>(sortValue, message));
+                    score.FirstName = firstName;
+                    score.LastName = lastName;
+                    score.StudentIdentifier = fullName;
+                    scoresCopy.RemoveAt(0);
+                }
+
+                foreach (var s in similarScores)
+                {
+                    scoresCopy.Remove(s);
+                    if (s.FirstName == firstName && s.LastName == lastName)
+                        continue;
+
+                    var sortValue = s.Semester + "_" + fullName;
+                    var message = $"Student {fullName} has potential misspelled name {s.FirstName} {s.LastName} in semester {s.Semester}; using {fullName}";
+                    messages.Add(new Tuple<string, string>(sortValue, message));
+                    s.FirstName = firstName;
+                    s.LastName = lastName;
+                    s.StudentIdentifier = fullName;
+                }
+            }
+
+            //var onlyFirstNames = scores.GroupBy(s => new { FirstName = s.FirstName.ToLower(CultureInfo.CurrentCulture), LastName = s.LastName.ToLower(CultureInfo.CurrentCulture) })
+            //                          .Select(g =>
+            //                          {
+            //                              var possibleScores = scores.Where(score => score.LastName.Equals(g.Key.LastName, StringComparison.CurrentCultureIgnoreCase));
+            //                              var closeFirstNames = GetSimilarNames(possibleScores, score => score.FirstName, g.Key.FirstName);
+            //                              return new
+            //                              {
+            //                                  MismatchScores = closeFirstNames.ToArray(),
+            //                                  FirstName = g.Key.FirstName,
+            //                                  LastName = g.Key.LastName
+            //                              };
+            //                          })
+            //                          .Where(x => x.MismatchScores.Count() > 1)
+            //                          .ToArray();
+            //var onlyLastNames = scores.GroupBy(s => new { FirstName = s.FirstName.ToLower(CultureInfo.CurrentCulture), LastName = s.LastName.ToLower(CultureInfo.CurrentCulture) })
+            //                          .Select(g =>
+            //                          {
+            //                              var possibleScores = scores.Where(score => score.FirstName.Equals(g.Key.FirstName, StringComparison.CurrentCultureIgnoreCase));
+            //                              var closeLastNames = GetSimilarNames(possibleScores, score => score.LastName, g.Key.LastName);
+            //                              return new
+            //                              {
+            //                                  MismatchScores = closeLastNames.ToArray(),
+            //                                  FirstName = g.Key.FirstName,
+            //                                  LastName = g.Key.LastName
+            //                              };
+            //                          })
+            //                          .Where(x => x.MismatchScores.Count() > 1)
+            //                          .ToArray();
+
+            //foreach (var fn in onlyFirstNames)
+            //{
+            //    var mostPopular = fn.FirstName + " " + fn.LastName;
+            //    var mismatches = fn.MismatchScores.Select(s => new { FirstName = s.FirstName, s.Semester }).Distinct();
+            //    foreach (var m in mismatches)
+            //    {
+            //        var sortValue = m.Semester + "_" + mostPopular;
+            //        var message = $"Student {mostPopular} has potential misspelled first name {m.FirstName} in semester {m.Semester}; using {fn.FirstName}";
+            //        messages.Add(new Tuple<string, string>(sortValue, message));
+            //    }
+            //    foreach (var score in fn.MismatchScores)
+            //    {
+            //        score.StudentIdentifier = mostPopular;
+            //        score.FirstName = fn.FirstName;
+            //        score.LastName = fn.LastName;
+            //    }
+            //}
+            //foreach (var ln in onlyLastNames)
+            //{
+            //    var mostPopular = ln.FirstName + " " + ln.LastName;
+            //    var mismatches = ln.MismatchScores.Select(s => new { LastName = s.LastName, s.Semester }).Distinct();
+            //    foreach (var m in mismatches)
+            //    {
+            //        var sortValue = m.Semester + "_" + mostPopular;
+            //        var message = $"Student {mostPopular} has potential misspelled last name {m.LastName} in semester {m.Semester}; using {ln.LastName}";
+            //        messages.Add(new Tuple<string, string>(sortValue, message));
+            //    }
+            //    foreach (var score in ln.MismatchScores)
+            //    {
+            //        score.StudentIdentifier = mostPopular;
+            //        score.FirstName = ln.FirstName;
+            //        score.LastName = ln.LastName;
+            //    }
+            //}
+
+            // Validation: Find students who have more than one class standing or emphasis in a given semester.
+            var multipleStandings = scores.GroupBy(s => new
+                                              {
+                                                  s.StudentIdentifier,
+                                                  s.Semester
+                                              })
+                                          .Where(g => g.Select(x => x.ClassStanding).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+                                          .Select(g => new
+                                              {
+                                                  g.Key.StudentIdentifier,
+                                                  g.Key.Semester,
+                                                  Scores = g.ToArray()
+                                              })
+                                          .ToArray();
+            var multipleEmphasis = scores.GroupBy(s => new
+                                             {
+                                                 s.StudentIdentifier,
+                                                 s.Semester
+                                             })
+                                         .Where(g => g.Select(x => x.Emphasis).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+                                         .Select(g => new
+                                             {
+                                                 g.Key.StudentIdentifier,
+                                                 g.Key.Semester,
+                                                 Scores = g.ToArray()
+                                             })
+                                         .ToArray();
+
             foreach (var standing in multipleStandings)
             {
                 var mostPopular = standing.Scores.GroupBy(s => s.ClassStanding).OrderByDescending(g => g.Count()).Select(g => g.Key).First();
@@ -208,28 +254,49 @@ namespace AssessmentReportsV2
                     score.Emphasis = mostPopular;
                 }
             }
+
             return messages;
         }
 
-        private static IEnumerable<AssessmentScore> GetSimilarNames(IGrouping<string, AssessmentScore> groupedScores, Func<AssessmentScore, string> getNameFunc, string compareToName)
+        private static SortedSet<string> GetSimilarNames(IEnumerable<string> possibleNames, string compareToName)
         {
-            var similarNames = groupedScores.Where(score =>
+            var similarNames = possibleNames.Where(name =>
             {
-                var name = getNameFunc(score);
-                return name != compareToName
-                           && (Soundex.Generate(name) == Soundex.Generate(compareToName)
-                               || name.LevenshteinDistance(compareToName) <= _maximumLevenshteinDistance
-                               || (name[0] == compareToName[0]
-                                   && name != compareToName
-                                   && (Math.Abs(name.Length - compareToName.Length) <= 3
-                                       || name.Contains(compareToName)
-                                       || compareToName.Contains(name)
-                                       )
-                                  )
-                               );
+                return name == compareToName
+                       || Soundex.Generate(name) == Soundex.Generate(compareToName)
+                       || name.LevenshteinDistance(compareToName) <= _maximumLevenshteinDistance
+                       || name.StartsWith(compareToName, StringComparison.OrdinalIgnoreCase)
+                       || compareToName.StartsWith(name, StringComparison.OrdinalIgnoreCase)
+                       || name.EndsWith(compareToName, StringComparison.OrdinalIgnoreCase)
+                       || compareToName.EndsWith(name, StringComparison.OrdinalIgnoreCase);
             });
 
-            return similarNames;
+            return new SortedSet<string>(similarNames);
+        }
+
+        private static IEnumerable<SortedSet<string>> GetSupersets(IEnumerable<SortedSet<string>> sets)
+        {
+            // Sort by length, then copy only entries that aren't a subset of any other set.
+            var supersets = new List<SortedSet<string>>();
+
+            var orderedSets = sets.OrderBy(s => s.Count).ToList();
+            for (var i = 0; i < orderedSets.Count; ++i)
+            {
+                var set = orderedSets[i];
+                var hasSuper = false;
+                for (var j = i + 1; j < orderedSets.Count(); ++j)
+                {
+                    if (set.IsSubsetOf(orderedSets[j]))
+                    {
+                        hasSuper = true;
+                        break;
+                    }
+                }
+                if (!hasSuper)
+                    supersets.Add(set);
+            }
+
+            return supersets;
         }
     }
 }

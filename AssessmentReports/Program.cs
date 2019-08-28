@@ -10,7 +10,7 @@ namespace AssessmentReportsV2
             var options = new AssessmentOptions
             {
                 Filename = @"E:\Users\Eric\Desktop\Juries\Theatre Juries Spring 2019.xlsx",
-                CurrentSemester = "Fall 2018",
+                CurrentSemester = "Spring 2019",
                 SheetName = "Sheet1",
                 StartColumn = "I",
                 LastColumn = "AP",
