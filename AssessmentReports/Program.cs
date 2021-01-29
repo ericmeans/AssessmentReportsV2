@@ -17,7 +17,8 @@ namespace AssessmentReportsV2
                 StartColumn = "I",
                 LastColumn = "AP",
                 SkipColumns = new[] { "AH", "AI", "AJ" },
-                ValidateOnly = args.Contains("-v")
+                ValidateOnly = args.Contains("-v"),
+                NameMapSheetName = null
             };
 
             var index = args.IndexOf("-file");
@@ -49,6 +50,11 @@ namespace AssessmentReportsV2
             if (index >= 0 && args.Length >= index + 2)
             {
                 options.SkipColumns = args[index + 1].Split(',', StringSplitOptions.RemoveEmptyEntries);
+            }
+            index = args.IndexOf("-map");
+            if (index >= 0 && args.Length >= index + 2)
+            {
+                options.NameMapSheetName = args[index + 1];
             }
             var analyzer = new AssessmentAnalyzer(options);
             analyzer.Execute();

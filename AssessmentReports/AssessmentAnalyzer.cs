@@ -17,7 +17,7 @@ namespace AssessmentReportsV2
 
         public AssessmentAnalyzer(AssessmentOptions options)
         {
-            this._options = options;
+            _options = options;
         }
 
         public void Execute()
@@ -26,15 +26,15 @@ namespace AssessmentReportsV2
 
             Console.WriteLine($"{scores.Count} scores read.");
 
-            if (!string.IsNullOrWhiteSpace(this._options.CurrentSemester))
+            if (!string.IsNullOrWhiteSpace(_options.CurrentSemester))
             {
-                var studentNames = scores.Where(s => s.Semester == this._options.CurrentSemester)
+                var studentNames = scores.Where(s => s.Semester == _options.CurrentSemester)
                                          .Select(s => s.StudentIdentifier)
                                          .ToHashSet();
                 scores = scores.Where(s => studentNames.Contains(s.StudentIdentifier)).ToList();
             }
 
-            Console.WriteLine($"Using {scores.Count} scores from students included in the {this._options.CurrentSemester} semester scores.");
+            Console.WriteLine($"Using {scores.Count} scores from students included in the {_options.CurrentSemester} semester scores.");
 
             var messages = ScoreValidator.ValidateScores(scores);
             foreach (var message in messages.OrderBy(m => ConvertToSortableValue(m.Item1)))
@@ -42,7 +42,7 @@ namespace AssessmentReportsV2
                 Console.Error.WriteLine(message.Item2);
             }
 
-            if (this._options.ValidateOnly)
+            if (_options.ValidateOnly)
                 return;
 
             WriteResults(scores);
@@ -51,25 +51,25 @@ namespace AssessmentReportsV2
         private List<AssessmentScore> ReadScores()
         {
             var scores = new List<AssessmentScore>();
-            using (var package = new ExcelPackage(new FileInfo(this._options.Filename)))
+            using (var package = new ExcelPackage(new FileInfo(_options.Filename)))
             {
-                var worksheet = package.Workbook.Worksheets.FirstOrDefault(s => this._options.SheetName.Equals(s.Name, StringComparison.OrdinalIgnoreCase));
+                var worksheet = package.Workbook.Worksheets.FirstOrDefault(s => _options.SheetName.Equals(s.Name, StringComparison.OrdinalIgnoreCase));
                 if (worksheet == null)
                 {
-                    throw new InvalidOperationException($"Worksheet {this._options.SheetName} not found.");
+                    throw new InvalidOperationException($"Worksheet {_options.SheetName} not found.");
                 }
                 if (worksheet.Dimension == null)
                 {
-                    throw new InvalidOperationException($"Worksheet {this._options.SheetName} has no data.");
+                    throw new InvalidOperationException($"Worksheet {_options.SheetName} has no data.");
                 }
 
-                var startCol = GetNumberForColumn(this._options.StartColumn ?? "A");
+                var startCol = GetNumberForColumn(_options.StartColumn ?? "A");
                 int endCol;
-                if (this._options.LastColumn == null)
+                if (_options.LastColumn == null)
                     endCol = worksheet.Dimension.Columns - 1;
                 else
-                    endCol = GetNumberForColumn(this._options.LastColumn);
-                var skipCols = this._options.SkipColumns?.Select(c => GetNumberForColumn(c)).ToArray();
+                    endCol = GetNumberForColumn(_options.LastColumn);
+                var skipCols = _options.SkipColumns?.Select(c => GetNumberForColumn(c)).ToArray();
 
                 var map = new Dictionary<string, int>();
                 var approachMap = new Dictionary<int, string>();
@@ -197,16 +197,9 @@ namespace AssessmentReportsV2
 
         private void WriteResults(List<AssessmentScore> scores)
         {
-            var overallAverage = scores.Where(s => s.ScoreName == "Metacognition" &&
-                                                   (s.SemesterSort.StartsWith("2015") ||
-                                                    s.SemesterSort.StartsWith("2016") ||
-                                                    s.SemesterSort.StartsWith("2017") ||
-                                                    s.SemesterSort.StartsWith("2018") ||
-                                                    s.SemesterSort.StartsWith("2019")
-                                                   )
-                                              )
-                                       .Average(s => s.Score);
-            Console.WriteLine("Overall average: " + overallAverage);
+            //var overallAverage = scores.Where(s => s.ScoreName == "Metacognition")
+            //                           .Average(s => s.Score);
+            //Console.WriteLine("Overall Metacognition average: " + overallAverage);
 
             var scoreAverages = scores.GroupBy(s => new
             {
@@ -235,7 +228,7 @@ namespace AssessmentReportsV2
             })
             .OrderBy(g => g.LastName);
 
-            var basePath = Path.Combine(Path.GetDirectoryName(this._options.Filename), "output");
+            var basePath = Path.Combine(Path.GetDirectoryName(_options.Filename), "output");
             if (!Directory.Exists(basePath))
             {
                 Directory.CreateDirectory(basePath);

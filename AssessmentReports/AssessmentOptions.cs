@@ -13,5 +13,6 @@ namespace AssessmentReportsV2
         public string LastColumn { get; set; }
         public string[] SkipColumns { get; set; }
         public bool ValidateOnly { get; set; }
+        public string NameMapSheetName { get; internal set; }
     }
 }
