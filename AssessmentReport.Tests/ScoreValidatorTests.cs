@@ -57,7 +57,7 @@ namespace Tests
 
             var validationResult = ScoreValidator.ValidateScores(scores);
             Assert.AreEqual(1, validationResult.Count);
-            //Assert.AreEqual("Student Alison Means has potential misspelled first name Allison in semester Spring 2019; using Alison", validationResult.First().Item2);
+            Assert.IsFalse(scores.Any(s => s.FirstName != "Alison"));
         }
 
         [Test]
@@ -117,7 +117,7 @@ namespace Tests
 
             var validationResult = ScoreValidator.ValidateScores(scores);
             Assert.AreEqual(2, validationResult.Count);
-            //Assert.AreEqual("Student Eric Albrecht has potential misspelled last name Albrect in semester Spring 2019; using Albrecht", validationResult.First().Item2);
+            Assert.IsFalse(scores.Any(s => s.LastName != "Albrecht"));
         }
 
         [Test]
@@ -165,6 +165,8 @@ namespace Tests
 
             var validationResult = ScoreValidator.ValidateScores(scores);
             Assert.AreEqual(0, validationResult.Count);
+            Assert.IsTrue(scores.Any(s => s.LastName == "Wood"));
+            Assert.IsTrue(scores.Any(s => s.LastName == "Snow"));
         }
 
         [Test]
@@ -212,6 +214,199 @@ namespace Tests
 
             var validationResult = ScoreValidator.ValidateScores(scores);
             Assert.AreEqual(1, validationResult.Count);
+            Assert.IsFalse(scores.Any(s => s.LastName != "Wood"));
+        }
+
+        [Test]
+        public void FirstNameIsNull()
+        {
+            var scores = new List<AssessmentScore>
+            {
+                new AssessmentScore
+                {
+                    FirstName = null,
+                    LastName = "Means",
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Allison Means",
+                    ScoreName = "Oral",
+                    Score = 4
+                },
+                new AssessmentScore
+                {
+                    FirstName = "Alison",
+                    LastName = "Means",
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Alison Means",
+                    ScoreName = "Oral",
+                    Score = 3
+                },
+                new AssessmentScore
+                {
+                    FirstName = "Alison",
+                    LastName = "Means",
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Alison Means",
+                    ScoreName = "Oral",
+                    Score = 4
+                }
+            };
+
+            var validationResult = ScoreValidator.ValidateScores(scores);
+            Assert.AreEqual(0, validationResult.Count);
+            Assert.IsTrue(scores.Any(s => s.FirstName == null));
+        }
+
+        [Test]
+        public void FirstNameIsEmpty()
+        {
+            var scores = new List<AssessmentScore>
+            {
+                new AssessmentScore
+                {
+                    FirstName = "",
+                    LastName = "Means",
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Allison Means",
+                    ScoreName = "Oral",
+                    Score = 4
+                },
+                new AssessmentScore
+                {
+                    FirstName = "Alison",
+                    LastName = "Means",
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Alison Means",
+                    ScoreName = "Oral",
+                    Score = 3
+                },
+                new AssessmentScore
+                {
+                    FirstName = "Alison",
+                    LastName = "Means",
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Alison Means",
+                    ScoreName = "Oral",
+                    Score = 4
+                }
+            };
+
+            var validationResult = ScoreValidator.ValidateScores(scores);
+            Assert.AreEqual(0, validationResult.Count);
+            Assert.IsTrue(scores.Any(s => s.FirstName == ""));
+        }
+
+        [Test]
+        public void LastNameIsNull()
+        {
+            var scores = new List<AssessmentScore>
+            {
+                new AssessmentScore
+                {
+                    FirstName = "Alison",
+                    LastName = null,
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Allison Means",
+                    ScoreName = "Oral",
+                    Score = 4
+                },
+                new AssessmentScore
+                {
+                    FirstName = "Alison",
+                    LastName = "Means",
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Alison Means",
+                    ScoreName = "Oral",
+                    Score = 3
+                },
+                new AssessmentScore
+                {
+                    FirstName = "Alison",
+                    LastName = "Means",
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Alison Means",
+                    ScoreName = "Oral",
+                    Score = 4
+                }
+            };
+
+            var validationResult = ScoreValidator.ValidateScores(scores);
+            Assert.AreEqual(0, validationResult.Count);
+            Assert.IsTrue(scores.Any(s => s.LastName == null));
+        }
+
+        [Test]
+        public void LastNameIsEmpty()
+        {
+            var scores = new List<AssessmentScore>
+            {
+                new AssessmentScore
+                {
+                    FirstName = "Alison",
+                    LastName = "",
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Allison Means",
+                    ScoreName = "Oral",
+                    Score = 4
+                },
+                new AssessmentScore
+                {
+                    FirstName = "Alison",
+                    LastName = "Means",
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Alison Means",
+                    ScoreName = "Oral",
+                    Score = 3
+                },
+                new AssessmentScore
+                {
+                    FirstName = "Alison",
+                    LastName = "Means",
+                    ClassStanding = "4 - Senior",
+                    Emphasis = "Generalist",
+                    Semester = "Spring 2019",
+                    SemesterSort = AssessmentAnalyzer.ConvertToSortableValue("Spring 2019"),
+                    StudentIdentifier = "Alison Means",
+                    ScoreName = "Oral",
+                    Score = 4
+                }
+            };
+
+            var validationResult = ScoreValidator.ValidateScores(scores);
+            Assert.AreEqual(0, validationResult.Count);
+            Assert.IsTrue(scores.Any(s => s.LastName == ""));
         }
     }
 }

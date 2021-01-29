@@ -29,7 +29,7 @@ namespace AssessmentReportsV2
                                      })
                                      .ToArray();
 
-            var dashReplacedWithSpace = scores.GroupBy(s => s.FirstName.Replace('-', ' ')).Select(g => new { NoDashes = g.Key, Count = g.Count(), PossibleMatches = g.ToArray() });
+            var dashReplacedWithSpace = scores.GroupBy(s => s.FirstName?.Replace('-', ' ')).Select(g => new { NoDashes = g.Key, Count = g.Count(), PossibleMatches = g.ToArray() });
             var lostDashes = scores.GroupBy(s => s.StudentIdentifier)
                                      .Join(dashReplacedWithSpace, g => g.Key, r => r.NoDashes, (g1, g2) => new { Student = g1, NoDashes = g2 })
                                      .Where(g => g.Student.Count() > g.NoDashes.Count)
@@ -88,8 +88,8 @@ namespace AssessmentReportsV2
             while (scoresCopy.Any())
             {
                 var score = scoresCopy.First();
-                var similarFirstList = similarFirstNames.Where(n => n.Contains(score.FirstName)).First();
-                var similarLastList = similarLastNames.Where(n => n.Contains(score.LastName)).First();
+                var similarFirstList = similarFirstNames.Where(n => n.Contains(score.FirstName)).FirstOrDefault() ?? new SortedSet<string>(new[] { score.FirstName });
+                var similarLastList = similarLastNames.Where(n => n.Contains(score.LastName)).FirstOrDefault() ?? new SortedSet<string>(new[] { score.LastName });
 
                 if (similarFirstList.Count == 1 && similarLastList.Count == 1)
                 {
