@@ -78,9 +78,9 @@ namespace AssessmentReportsV2
             }
 
             // Validation: Find students with misspelled names.
-            var firstNames = scores.Select(score => score.FirstName).Distinct();
+            var firstNames = scores.Select(score => score.FirstName).Distinct().Where(s => !string.IsNullOrWhiteSpace(s));
             var similarFirstNames = GetSupersets(firstNames.Select(s => GetSimilarNames(firstNames, s)));
-            var lastNames = scores.Select(score => score.LastName).Distinct();
+            var lastNames = scores.Select(score => score.LastName).Distinct().Where(s => !string.IsNullOrWhiteSpace(s));
             var similarLastNames = GetSupersets(lastNames.Select(s => GetSimilarNames(lastNames, s)));
 
             var scoresCopy = new List<AssessmentScore>(scores);

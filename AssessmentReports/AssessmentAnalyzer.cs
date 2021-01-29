@@ -197,6 +197,17 @@ namespace AssessmentReportsV2
 
         private void WriteResults(List<AssessmentScore> scores)
         {
+            var overallAverage = scores.Where(s => s.ScoreName == "Metacognition" &&
+                                                   (s.SemesterSort.StartsWith("2015") ||
+                                                    s.SemesterSort.StartsWith("2016") ||
+                                                    s.SemesterSort.StartsWith("2017") ||
+                                                    s.SemesterSort.StartsWith("2018") ||
+                                                    s.SemesterSort.StartsWith("2019")
+                                                   )
+                                              )
+                                       .Average(s => s.Score);
+            Console.WriteLine("Overall average: " + overallAverage);
+
             var scoreAverages = scores.GroupBy(s => new
             {
                 s.StudentIdentifier,
@@ -409,7 +420,8 @@ namespace AssessmentReportsV2
             var stylePart = doc.MainDocumentPart.StyleDefinitionsPart ?? AddStylesPartToPackage(doc);
             var themePart = doc.MainDocumentPart.ThemePart ?? AddThemePartToPackage(doc);
             // TODO: This really shouldn't be hardcoded.
-            var templatePath = @"C:\Program Files (x86)\Microsoft Office\root\Office16\1033\QuickStyles\Default.dotx";
+            //var templatePath = @"C:\Program Files (x86)\Microsoft Office\root\Office16\1033\QuickStyles\Default.dotx";
+            var templatePath = @"C:\Program Files\Microsoft Office\root\Office16\1033\QuickStyles\Default.dotx";
             if (File.Exists(templatePath))
             {
                 using (WordprocessingDocument wordTemplate = WordprocessingDocument.Open(templatePath, false))

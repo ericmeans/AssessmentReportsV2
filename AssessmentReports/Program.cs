@@ -7,10 +7,12 @@ namespace AssessmentReportsV2
     {
         static void Main(string[] args)
         {
+            OfficeOpenXml.ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial;
+
             var options = new AssessmentOptions
             {
-                Filename = @"E:\Users\Eric\Desktop\Juries\Theatre Juries Spring 2019.xlsx",
-                CurrentSemester = "Spring 2019",
+                Filename = @"E:\Users\Eric\Desktop\Juries\Theatre Juries New Student Fall 2019.xlsx",
+                CurrentSemester = null,
                 SheetName = "Sheet1",
                 StartColumn = "I",
                 LastColumn = "AP",

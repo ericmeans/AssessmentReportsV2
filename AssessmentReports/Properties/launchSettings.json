@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "AssessmentReportsV2": {
+      "commandName": "Project",
+      "commandLineArgs": "-file \"E:\\Users\\Eric\\OneDrive\\Desktop\\Juries\\Theatre_Juries_8.xlsx\" -semester \"Fall 2020\""
+    }
+  }
+}
